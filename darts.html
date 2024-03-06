@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width">
+
+	<title>Darts</title>
+</head>
+<body>
+	<canvas id="dartboard" width="500" height="500"></canvas>
+
+	<div>
+		<label for="turns">Turns to throw:</label>
+		<input type="number" id="turns" value="10000">
+		<span>(will throw this x3 darts)</span>
+	</div>
+
+	<div>
+		<label for="targetName">Target:</label>
+		<input type="text" id="targetName" value="" readonly>
+	</div>
+
+	<div>
+		<label for="targetHit">Hit:</label>
+		<input type="number" id="targetHit" value="0" readonly>
+	</div>
+
+	<div>
+		<label for="scoreMean">Score mean:</label>
+		<input type="number" id="scoreMean" value="0" readonly>
+	</div>
+
+	<div>
+		<label for="scoreStddev">Score stddev:</label>
+		<input type="number" id="scoreStddev" value="0" readonly>
+	</div>
+
+	<div>
+		<label for="lockRegion">Lock Region:</label>
+		<input type="checkbox" id="lockRegion">
+		<span>(use to try the same spread in different locations)</span>
+	</div>
+
+	<div>
+		<label for="regionX">Region X:</label>
+		<input type="number" id="regionX" value="0" min="0">
+	</div>
+
+	<div>
+		<label for="regionY">Region Y:</label>
+		<input type="number" id="regionY" value="0" min="0">
+	</div>
+
+	<script>
+		const canvas = document.getElementById('dartboard');
+		const ctx = canvas.getContext('2d');
+
+		const arcSize = (2 * Math.PI) / 20;
+
+		const green = '#ccc'; // '#008000';
+		const red = '#333'; // '#ee2222';
+		const black = '#222222';
+		const white = '#eeeeee';
+
+		const board_diam_mm = 451;
+		const double_diam_mm = 340;
+		const double_size_mm = 8;
+		const treble_diam_mm = 214;
+		const treble_size_mm = 8;
+		const outer_bullseye_diam_mm = 32;
+		const inner_bullseye_diam_mm = 12.7;
+
+		const numbers = [6,10,15,2,17,3,19,7,16,8,11,14,9,12,5,20,1,18,4,13];
+
+		let regionBeingDefined = false;
+		let regionCentre = null;
+		let regionSize = null;
+
+		let darts = [];
+
+		function getScore(x, y) {
+			if (x < 0 || y < 0 || x > canvas.width || y > canvas.height) {
+				return {name: "0", score: 0};
+			}
+
+			const dx = x - (canvas.width / 2);
+			const dy = y - (canvas.height / 2);
+
+			const r = Math.sqrt(dx*dx + dy*dy);
+
+			const px_per_mm = canvas.width / board_diam_mm;
+
+			if (r < ((px_per_mm * inner_bullseye_diam_mm) / 2)) {
+				return {name: "50", score: 50};
+
+			} else if (r < ((px_per_mm * outer_bullseye_diam_mm) / 2)) {
+				return {name: "25", score: 25};
+
+			} else if (r > ((px_per_mm * board_diam_mm) / 2)) {
+				return {name: "0", score: 0};
+
+			} else if (r > ((px_per_mm * double_diam_mm) / 2)) {
+				return {name: "0", score: 0};
+
+			} else {
+				// Definitely hit a number. Which?
+				let i = Math.round(Math.atan2(dy, dx) / arcSize);
+				if (i < 0) {
+					i += 20;
+				}
+
+				score = numbers[i];
+				name = score.toString()
+
+				if (r >= ((px_per_mm * double_diam_mm) / 2) - double_size_mm) {
+					score *= 2;
+					name = "D" + name
+
+				} else if (r <= ((px_per_mm * treble_diam_mm) / 2) && r >= ((px_per_mm * treble_diam_mm) / 2) - treble_size_mm) {
+					score *= 3;
+					name = "T" + name
+				}
+
+				return {name: name, score: score};
+			}
+		}
+
+		function render() {
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			const centerX = canvas.width / 2;
+			const centerY = canvas.height / 2;
+			const radius = canvas.width / 2;
+			const px_per_mm = canvas.width / board_diam_mm;
+
+			// Draw the outer circle (black)
+			ctx.beginPath();
+			ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+			ctx.fillStyle = black;
+			ctx.fill();
+
+			for (let i = 0; i < 20; ++i) {
+				const startAngle = i * arcSize - (arcSize / 2);
+				const endAngle = (i + 1) * arcSize - (arcSize / 2);
+
+				// Double
+				ctx.beginPath();
+				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.arc(centerX, centerY, (px_per_mm * double_diam_mm) / 2, startAngle, endAngle);
+				ctx.fillStyle = i % 2 === 0 ? green : red;
+				ctx.fill();
+
+				// Outer
+				ctx.beginPath();
+				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.arc(centerX, centerY, (px_per_mm * double_diam_mm) / 2 - double_size_mm, startAngle, endAngle);
+				ctx.fillStyle = i % 2 === 0 ? white : black;
+				ctx.fill();
+
+				// Triple
+				ctx.beginPath();
+				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.arc(centerX, centerY, (px_per_mm * treble_diam_mm) / 2, startAngle, endAngle);
+				ctx.fillStyle = i % 2 === 0 ? green : red;
+				ctx.fill();
+
+				// Inner
+				ctx.beginPath();
+				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.arc(centerX, centerY, (px_per_mm * treble_diam_mm) / 2 - treble_size_mm, startAngle, endAngle);
+				ctx.fillStyle = i % 2 === 0 ? white : black;
+				ctx.fill();
+
+				// Numbers
+				ctx.font = "30px serif";
+				const text = ctx.measureText(numbers[i])
+				ctx.fillStyle = white;
+				ctx.fillText(
+					numbers[i],
+					centerX + ((px_per_mm * ((board_diam_mm + double_diam_mm) / 2)) / 2) * Math.cos((startAngle + endAngle) / 2) - (text.width / 2),
+					centerY + ((px_per_mm * ((board_diam_mm + double_diam_mm) / 2)) / 2) * Math.sin((startAngle + endAngle) / 2) + (30 / 3)
+				);
+			}
+
+			// Outer bull
+			ctx.beginPath();
+			ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+			ctx.arc(centerX, centerY, (px_per_mm * outer_bullseye_diam_mm) / 2, 0, 2 * Math.PI);
+			ctx.fillStyle = green;
+			ctx.fill();
+
+			// Inner bull
+			ctx.beginPath();
+			ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+			ctx.arc(centerX, centerY, (px_per_mm * inner_bullseye_diam_mm) / 2, 0, 2 * Math.PI);
+			ctx.fillStyle = red;
+			ctx.fill();
+
+			for (const dart of darts) {
+				ctx.beginPath();
+				ctx.arc(dart[0], dart[1], 2, 0, 2 * Math.PI);
+				ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; // Red with 50% opacity
+				ctx.fill();
+			}
+
+			if (regionCentre !== null && regionSize !== null) {
+				ctx.beginPath();
+				ctx.ellipse(regionCentre[0], regionCentre[1], regionSize[0], regionSize[1], 0, 0, 2 * Math.PI);
+				ctx.strokeStyle = 'blue';
+				ctx.stroke();
+			}
+
+			// window.requestAnimationFrame(render);
+		}
+
+		render();
+		// window.requestAnimationFrame(render);
+
+		canvas.addEventListener('mousedown', function(event) {
+			const rect = canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			regionBeingDefined = true;
+			regionCentre = [x, y];
+			darts = [];
+
+		}, false);
+
+		canvas.addEventListener('mousemove', function(event) {
+			if (!regionBeingDefined) {
+				return;
+			}
+
+			const rect = canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			regionSize = [
+				Math.abs(regionCentre[0] - x),
+				Math.abs(regionCentre[1] - y),
+			];
+
+			render();
+
+		}, false);
+
+		function gaussianRandom(mean, stdev) {
+			const u = 1 - Math.random();
+			const v = Math.random();
+			const z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+			return z * stdev + mean;
+		}
+
+		function getStats(arr) {
+			const n = arr.length
+			const mean = arr.reduce((a, b) => a + b) / n
+
+			return {
+				mean: mean,
+				stddev: Math.sqrt(arr.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n)
+			}
+		}
+
+		canvas.addEventListener('mouseup', function(event) {
+			if (document.getElementById('lockRegion').checked) {
+				regionSize = [
+					parseInt(document.getElementById('regionX').value),
+					parseInt(document.getElementById('regionY').value)
+				];
+
+			} else {
+				const rect = canvas.getBoundingClientRect();
+				const x = event.clientX - rect.left;
+				const y = event.clientY - rect.top;
+
+				regionSize = [
+					Math.abs(regionCentre[0] - x),
+					Math.abs(regionCentre[1] - y),
+				];
+			}
+
+			regionBeingDefined = false;
+
+			darts = [];
+
+			let toThrow = 3 * parseInt(document.getElementById('turns').value);
+
+			while (toThrow > 0) {
+				darts.push([
+					gaussianRandom(regionCentre[0], regionSize[0]),
+					gaussianRandom(regionCentre[1], regionSize[1])
+				]);
+
+				toThrow--;
+			}
+
+			render();
+
+			const target = getScore(regionCentre[0], regionCentre[1]).name;
+			const scores = darts.map(x => getScore(x[0], x[1]));
+
+			const onTarget = scores.reduce((a, b) => a + (b.name == target ? 1 : 0), 0);
+			const hitProbability = onTarget / scores.length;
+
+			let turns = [];
+			for (let i = 0; i < scores.length; i += 3) {
+				turns.push(scores[i] + scores[i + 1] + scores[i + 2]);
+			}
+
+			const stats = getStats(turns);
+
+			document.getElementById('targetName').value = target;
+			document.getElementById('targetHit').value = hitProbability.toFixed(3);
+
+			document.getElementById('scoreMean').value = stats.mean.toFixed(3);
+			document.getElementById('scoreStddev').value = stats.stddev.toFixed(3);
+
+			document.getElementById('regionX').value = regionSize[0];
+			document.getElementById('regionY').value = regionSize[1];
+
+		}, false);
+	</script>
+</body>
+</html>
