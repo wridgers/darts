@@ -9,9 +9,11 @@
 <body>
 	<canvas id="dartboard" width="500" height="500"></canvas>
 
+	<p>Help: Click and drag to draw a region</p>
+
 	<div>
 		<label for="turns">Turns to throw:</label>
-		<input type="number" id="turns" value="10000">
+		<input type="number" id="turns" value="5000">
 		<span>(will throw this x3 darts)</span>
 	</div>
 
@@ -49,6 +51,16 @@
 	<div>
 		<label for="regionY">Region Y:</label>
 		<input type="number" id="regionY" value="0" min="0">
+	</div>
+
+	<div>
+		<label for="dumpJSON">Dump JSON:</label>
+		<input type="checkbox" id="dumpJSON">
+		<span>(for analysis)</span>
+	</div>
+
+	<div>
+		<textarea id="rawScores" rows="10" cols="60" readonly></textarea>
 	</div>
 
 	<script>
@@ -146,28 +158,28 @@
 
 				// Double
 				ctx.beginPath();
-				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.moveTo(centerX, centerY);
 				ctx.arc(centerX, centerY, (px_per_mm * double_diam_mm) / 2, startAngle, endAngle);
 				ctx.fillStyle = i % 2 === 0 ? green : red;
 				ctx.fill();
 
 				// Outer
 				ctx.beginPath();
-				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.moveTo(centerX, centerY);
 				ctx.arc(centerX, centerY, (px_per_mm * double_diam_mm) / 2 - double_size_mm, startAngle, endAngle);
 				ctx.fillStyle = i % 2 === 0 ? white : black;
 				ctx.fill();
 
 				// Triple
 				ctx.beginPath();
-				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.moveTo(centerX, centerY);
 				ctx.arc(centerX, centerY, (px_per_mm * treble_diam_mm) / 2, startAngle, endAngle);
 				ctx.fillStyle = i % 2 === 0 ? green : red;
 				ctx.fill();
 
 				// Inner
 				ctx.beginPath();
-				ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+				ctx.moveTo(centerX, centerY);
 				ctx.arc(centerX, centerY, (px_per_mm * treble_diam_mm) / 2 - treble_size_mm, startAngle, endAngle);
 				ctx.fillStyle = i % 2 === 0 ? white : black;
 				ctx.fill();
@@ -185,14 +197,14 @@
 
 			// Outer bull
 			ctx.beginPath();
-			ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+			ctx.moveTo(centerX, centerY);
 			ctx.arc(centerX, centerY, (px_per_mm * outer_bullseye_diam_mm) / 2, 0, 2 * Math.PI);
 			ctx.fillStyle = green;
 			ctx.fill();
 
 			// Inner bull
 			ctx.beginPath();
-			ctx.moveTo(centerX, centerY); // Move the pen to (30, 50)
+			ctx.moveTo(centerX, centerY);
 			ctx.arc(centerX, centerY, (px_per_mm * inner_bullseye_diam_mm) / 2, 0, 2 * Math.PI);
 			ctx.fillStyle = red;
 			ctx.fill();
@@ -200,7 +212,7 @@
 			for (const dart of darts) {
 				ctx.beginPath();
 				ctx.arc(dart[0], dart[1], 2, 0, 2 * Math.PI);
-				ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; // Red with 50% opacity
+				ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
 				ctx.fill();
 			}
 
@@ -210,12 +222,9 @@
 				ctx.strokeStyle = 'blue';
 				ctx.stroke();
 			}
-
-			// window.requestAnimationFrame(render);
 		}
 
 		render();
-		// window.requestAnimationFrame(render);
 
 		canvas.addEventListener('mousedown', function(event) {
 			const rect = canvas.getBoundingClientRect();
@@ -306,7 +315,7 @@
 
 			let turns = [];
 			for (let i = 0; i < scores.length; i += 3) {
-				turns.push(scores[i] + scores[i + 1] + scores[i + 2]);
+				turns.push(scores[i].score + scores[i + 1].score + scores[i + 2].score);
 			}
 
 			const stats = getStats(turns);
@@ -319,6 +328,10 @@
 
 			document.getElementById('regionX').value = regionSize[0];
 			document.getElementById('regionY').value = regionSize[1];
+
+			if (document.getElementById('dumpJSON').checked) {
+				document.getElementById('rawScores').value = JSON.stringify(scores, null, 2);
+			}
 
 		}, false);
 	</script>
